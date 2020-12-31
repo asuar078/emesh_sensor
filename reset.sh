@@ -1,0 +1,1 @@
+nrfjprog --reset -f nrf52
