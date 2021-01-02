@@ -77,6 +77,10 @@ namespace bt::ess {
 
   bool EnvironmentalSensingService::do_notify(int16_t old_val, int16_t new_val)
   {
+    if (configuration_.get_ccc() == Configuration::ClientCharConfig::none) {
+      return false;
+    }
+
     int16_t ref_val = trigger_setting_.get_value();
 
     /* get time since last notify */

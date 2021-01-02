@@ -4,6 +4,9 @@
 
 #include "connection_manager.hpp"
 
+#include <host/conn_internal.h>
+#include <settings/settings.h>
+
 namespace bt {
 
   struct bt_conn* ConnectionManager::s_conn = nullptr;
@@ -26,6 +29,10 @@ namespace bt {
 
   void ConnectionManager::bt_dev_ready(int err)
   {
+    if (IS_ENABLED(CONFIG_SETTINGS)) {
+      settings_load();
+    }
+
     if (err) {
       printk("Bluetooth init failed (err %d)\n", err);
     }
@@ -35,6 +42,7 @@ namespace bt {
   {
     int err;
 
+//    bt_le_set_auto_conn();
     err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
     if (err) {
       printk("Advertising failed to start (err %d)\n", err);
@@ -63,7 +71,13 @@ namespace bt {
 
   void ConnectionManager::connected(struct bt_conn* conn, uint8_t err)
   {
+    char addr[BT_ADDR_LE_STR_LEN];
+
+    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
     s_conn = conn;
+
+
+
     if (err) {
       printk("Connection failed (err 0x%02x)\n", err);
     }
