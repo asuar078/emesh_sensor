@@ -18,6 +18,8 @@ target_sources(app PRIVATE
   src/main.cpp
 )
 
+add_subdirectory(modules/zpp)
+
 #zephyr_library_include_directories(${ZEPHYR_BASE}/samples/bluetooth)
 add_subdirectory(src/sensors)
 add_subdirectory(src/bluetooth)

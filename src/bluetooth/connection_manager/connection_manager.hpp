@@ -31,6 +31,7 @@ namespace bt {
       BT_DATA_BYTES(BT_DATA_GAP_APPEARANCE, 0x00, 0x03),
       BT_DATA_BYTES(BT_DATA_UUID16_ALL,
           BT_UUID_16_ENCODE(BT_UUID_ESS_VAL),
+          BT_UUID_16_ENCODE(BT_UUID_DIS_VAL),
           BT_UUID_16_ENCODE(BT_UUID_BAS_VAL)),
   };
 
@@ -54,6 +55,18 @@ namespace bt {
       static void auth_passkey_display(struct bt_conn* conn, unsigned int passkey);
 
       static void auth_cancel(struct bt_conn* conn);
+
+      static void pairing_confirm(struct bt_conn *conn);
+
+      static void pairing_complete(struct bt_conn *conn, bool bonded);
+
+      static void pairing_failed(struct bt_conn *conn, enum bt_security_err reason);
+
+      static void security_changed(struct bt_conn *conn, bt_security_t level,
+          enum bt_security_err err);
+
+      static void identity_resolved(struct bt_conn *conn, const bt_addr_le_t *rpa,
+          const bt_addr_le_t *identity);
   };
 
 }

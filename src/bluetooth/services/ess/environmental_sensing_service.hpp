@@ -135,7 +135,7 @@ namespace bt::ess {
 
   class Configuration {
     public:
-      enum class ClientCharConfig {
+      enum class ClientCharConfig : uint8_t {
           none = 0,
           notify = BT_GATT_CCC_NOTIFY,
           indicate = BT_GATT_CCC_INDICATE
@@ -148,6 +148,8 @@ namespace bt::ess {
       ClientCharConfig get_ccc() const;
 
       void set_ccc(ClientCharConfig ccc);
+
+      void set_ccc(uint16_t ccc);
 
       [[nodiscard]] const std::array<uint8_t, BUFFER_SIZE>& get_buffer();
 
@@ -222,12 +224,31 @@ namespace bt::ess {
       const ValidRange valid_range_;
 
       int16_t value_ = 0;
+      int64_t last_update_ms_ = 0;
       int64_t last_notify_ms_ = 0;
 
       bool do_notify(int16_t old_val, int16_t new_val);
 
-      virtual int16_t get_new_service_value();
+      virtual int16_t read_sensor();
   };
+
+  ssize_t read_value_cb(struct bt_conn* conn, const struct bt_gatt_attr* attr,
+      void* buf, uint16_t len, uint16_t offset);
+
+  ssize_t read_measurement_cb(struct bt_conn* conn,
+      const struct bt_gatt_attr* attr, void* buf,
+      uint16_t len, uint16_t offset);
+
+  void ccc_cfg_changed_cb(const struct bt_gatt_attr* attr, uint16_t value);
+
+  ssize_t read_valid_range_cb(struct bt_conn* conn,
+      const struct bt_gatt_attr* attr, void* buf,
+      uint16_t len, uint16_t offset);
+
+  ssize_t read_trigger_setting_cb(struct bt_conn* conn,
+      const struct bt_gatt_attr* attr,
+      void* buf, uint16_t len,
+      uint16_t offset);
 }
 
 #endif //EMESH_SENSOR_ENVIRONMENTAL_SENSING_SERVICE_HPP

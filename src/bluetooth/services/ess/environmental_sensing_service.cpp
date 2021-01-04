@@ -77,7 +77,9 @@ namespace bt::ess {
 
   bool EnvironmentalSensingService::do_notify(int16_t old_val, int16_t new_val)
   {
+//    printk("config %d\n", configuration_.get_ccc());
     if (configuration_.get_ccc() == Configuration::ClientCharConfig::none) {
+//      printk("ccc set to none\n");
       return false;
     }
 
@@ -118,7 +120,14 @@ namespace bt::ess {
 
   void EnvironmentalSensingService::update_value(struct bt_conn* conn, const struct bt_gatt_attr* chrc)
   {
-    auto new_val = get_new_service_value();
+    /* get time since last update */
+    auto last_update_s = k_uptime_delta(&last_update_ms_) / 1000;
+
+    if (last_update_s < measurement_.get_update_interval_s()) {
+      return;
+    }
+
+    auto new_val = read_sensor();
     bool notify = do_notify(value_, new_val);
 
     /* Update value */
@@ -126,13 +135,16 @@ namespace bt::ess {
 
     /* Trigger notification if conditions are met */
     if (notify) {
+//      printk("sending notification\n");
       bt_gatt_notify(conn, chrc, &value_, sizeof(value_));
     }
   }
 
-  int16_t EnvironmentalSensingService::get_new_service_value()
+  int16_t EnvironmentalSensingService::read_sensor()
   {
-    return 0;
+//    printk("reading sensor\n");
+    static int16_t val = 0;
+    return val++;
   }
 
   ess::Measurement::Measurement(ess::Measurement::SamplingFunction sampling_function,
@@ -285,6 +297,20 @@ namespace bt::ess {
     return buffer;
   }
 
+  void Configuration::set_ccc(uint16_t ccc)
+  {
+    bt::ess::Configuration::ClientCharConfig config
+        = bt::ess::Configuration::ClientCharConfig::none;
+
+    if (ccc == 1) {
+      config = bt::ess::Configuration::ClientCharConfig::notify;
+    }
+    else if (ccc == 2) {
+      config = bt::ess::Configuration::ClientCharConfig::indicate;
+    }
+    set_ccc(config);
+  }
+
   ValidRange::ValidRange()
       :lower_limit_(std::numeric_limits<int16_t>::min()),
        upper_limit_(std::numeric_limits<int16_t>::max())
@@ -322,4 +348,54 @@ namespace bt::ess {
         BUFFER_SIZE);
   }
 
+  void ccc_cfg_changed_cb(const struct bt_gatt_attr* attr, uint16_t value)
+  {
+    bt::ess::Configuration::ClientCharConfig config
+        = bt::ess::Configuration::ClientCharConfig::none;
+
+    if (value == 1) {
+      config = bt::ess::Configuration::ClientCharConfig::notify;
+    }
+    else if (value == 2) {
+      config = bt::ess::Configuration::ClientCharConfig::indicate;
+    }
+
+    auto service =
+        static_cast<bt::ess::EnvironmentalSensingService*>(attr->user_data);
+    return service->get_configuration().set_ccc(config);
+  }
+
+  ssize_t read_value_cb(struct bt_conn* conn, const struct bt_gatt_attr* attr, void* buf, uint16_t len, uint16_t offset)
+  {
+    const auto service =
+        static_cast<bt::ess::EnvironmentalSensingService*>(attr->user_data);
+    return service->read_value(conn, attr, buf, len, offset);
+  }
+
+  ssize_t
+  read_measurement_cb(struct bt_conn* conn, const struct bt_gatt_attr* attr, void* buf, uint16_t len, uint16_t offset)
+  {
+    const auto service =
+        static_cast<bt::ess::EnvironmentalSensingService*>(attr->user_data);
+    return service->get_measurement().read_measurement(conn, attr, buf, len,
+        offset);;
+  }
+
+  ssize_t
+  read_valid_range_cb(struct bt_conn* conn, const struct bt_gatt_attr* attr, void* buf, uint16_t len, uint16_t offset)
+  {
+    const auto service =
+        static_cast<bt::ess::EnvironmentalSensingService*>(attr->user_data);
+    return service->get_valid_range().read_valid_range(conn, attr, buf, len,
+        offset);
+  }
+
+  ssize_t read_trigger_setting_cb(struct bt_conn* conn, const struct bt_gatt_attr* attr, void* buf, uint16_t len,
+      uint16_t offset)
+  {
+    const auto service =
+        static_cast<bt::ess::EnvironmentalSensingService*>(attr->user_data);
+    return service->get_trigger_setting().read_trigger_setting(conn, attr, buf, len,
+        offset);
+  }
 }
