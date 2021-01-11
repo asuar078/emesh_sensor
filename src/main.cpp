@@ -34,9 +34,12 @@ extern "C" {
 #include <bluetooth/services/bas.h>
 }
 
+#include <zpp.hpp>
 #include <humidity/humidity_sensor.hpp>
+#include <connection_manager/connection_handler.hpp>
 #include <connection_manager/connection_manager.hpp>
 #include <services/ess/environmental_sensing_service.hpp>
+
 
 /* Sensor Internal Update Interval [seconds] */
 #define SENSOR_1_UPDATE_IVAL      5
@@ -104,60 +107,98 @@ static void bas_notify(void)
   bt_bas_set_battery_level(battery_level);
 }
 
-static int settings_runtime_load(void)
+
+#define DEFAULT_FOO_VAL_VALUE 0
+
+static uint8_t foo_val = DEFAULT_FOO_VAL_VALUE;
+
+static int foo_settings_set(const char* name, size_t len,
+    settings_read_cb read_cb, void* cb_arg)
 {
-#if defined(CONFIG_BT_DIS_SETTINGS)
-  settings_runtime_set("bt/dis/model",
-			     CONFIG_BT_DIS_MODEL,
-			     sizeof(CONFIG_BT_DIS_MODEL));
-	settings_runtime_set("bt/dis/manuf",
-			     CONFIG_BT_DIS_MANUF,
-			     sizeof(CONFIG_BT_DIS_MANUF));
-#if defined(CONFIG_BT_DIS_SERIAL_NUMBER)
-	settings_runtime_set("bt/dis/serial",
-			     CONFIG_BT_DIS_SERIAL_NUMBER_STR,
-			     sizeof(CONFIG_BT_DIS_SERIAL_NUMBER_STR));
-#endif
-#if defined(CONFIG_BT_DIS_SW_REV)
-	settings_runtime_set("bt/dis/sw",
-			     CONFIG_BT_DIS_SW_REV_STR,
-			     sizeof(CONFIG_BT_DIS_SW_REV_STR));
-#endif
-#if defined(CONFIG_BT_DIS_FW_REV)
-	settings_runtime_set("bt/dis/fw",
-			     CONFIG_BT_DIS_FW_REV_STR,
-			     sizeof(CONFIG_BT_DIS_FW_REV_STR));
-#endif
-#if defined(CONFIG_BT_DIS_HW_REV)
-	settings_runtime_set("bt/dis/hw",
-			     CONFIG_BT_DIS_HW_REV_STR,
-			     sizeof(CONFIG_BT_DIS_HW_REV_STR));
-#endif
-#endif
-  return 0;
+  const char* next;
+  int rc;
+
+  if (settings_name_steq(name, "bar", &next) && !next) {
+    if (len != sizeof(foo_val)) {
+      return -EINVAL;
+    }
+
+    rc = read_cb(cb_arg, &foo_val, sizeof(foo_val));
+    if (rc >= 0) {
+      return 0;
+    }
+
+    return rc;
+  }
+
+  return -ENOENT;
 }
+
+struct settings_handler my_conf = {
+    .name = "foo",
+    .h_set = foo_settings_set
+};
+
+//
+// using a anonymous namespace for file local variables and functions
+//
+namespace {
+
+  class SecondThread {
+    public:
+
+      void start()
+      {
+        s_thread = zpp::thread(
+            s_thread_tcb, s_thread_attr, [this](int) {
+              this->run();
+            }, 0);
+      }
+
+      void run()
+      {
+        while (true) {
+          zpp::print("Second thread test\n");
+          zpp::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+      }
+
+    private:
+      zpp::thread s_thread;
+      zpp::thread_data<1024> s_thread_tcb;
+      const zpp::thread_attr s_thread_attr{
+          zpp::thread_prio::preempt(0),
+          zpp::thread_inherit_perms::no,
+          zpp::thread_suspend::no
+      };
+  };
+
+  SecondThread my_second_thread{};
+
+
+  bt::ConnectionHandler connection_handler;
+
+
+} // namespace
+
 
 void main(void)
 {
+  using namespace zpp;
+  using namespace std::chrono;
+
   printk("C++ version\n");
 
-  bt::ConnectionManager::begin();
-
-  if (IS_ENABLED(CONFIG_SETTINGS)) {
-    settings_load();
-  }
-
-  settings_runtime_load();
-
-  bt::ConnectionManager::start_adv();
-
-  while (1) {
-    k_sleep(K_SECONDS(1));
-
-    /* update temp sensor */
-    temp_sensor.update_value(NULL, &ess_svc.attrs[2]);
-
-    /* Battery level simulation */
-    bas_notify();
-  }
+  connection_handler.start();
+//  while (1) {
+//    k_sleep(K_SECONDS(1));
+//
+////    printk("in loop");
+//
+//    /* update temp sensor */
+//    temp_sensor.update_value(NULL, &ess_svc.attrs[2]);
+//
+//    /* Battery level simulation */
+//    bas_notify();
+//  }
 }
