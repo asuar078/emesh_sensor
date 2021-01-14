@@ -8,7 +8,6 @@
 
 extern "C" {
 
-#include <stdbool.h>
 #include <zephyr/types.h>
 #include <stddef.h>
 #include <string.h>
@@ -34,7 +33,6 @@ extern "C" {
 #include <bluetooth/services/bas.h>
 }
 
-#include <zpp.hpp>
 #include <humidity/humidity_sensor.hpp>
 #include <connection_manager/connection_handler.hpp>
 #include <connection_manager/connection_manager.hpp>
@@ -144,40 +142,7 @@ struct settings_handler my_conf = {
 //
 namespace {
 
-  class SecondThread {
-    public:
-
-      void start()
-      {
-        s_thread = zpp::thread(
-            s_thread_tcb, s_thread_attr, [this](int) {
-              this->run();
-            }, 0);
-      }
-
-      void run()
-      {
-        while (true) {
-          zpp::print("Second thread test\n");
-          zpp::this_thread::sleep_for(std::chrono::seconds(1));
-        }
-      }
-
-    private:
-      zpp::thread s_thread;
-      zpp::thread_data<1024> s_thread_tcb;
-      const zpp::thread_attr s_thread_attr{
-          zpp::thread_prio::preempt(0),
-          zpp::thread_inherit_perms::no,
-          zpp::thread_suspend::no
-      };
-  };
-
-  SecondThread my_second_thread{};
-
-
-  bt::ConnectionHandler connection_handler;
-
+  bt::ConnectionHandler connection_handler{};
 
 } // namespace
 
@@ -188,6 +153,8 @@ void main(void)
   using namespace std::chrono;
 
   printk("C++ version\n");
+
+  connection_handler.begin();
 
   connection_handler.start();
 //  while (1) {

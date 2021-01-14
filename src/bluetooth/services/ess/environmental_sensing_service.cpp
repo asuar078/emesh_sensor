@@ -68,11 +68,11 @@ namespace bt::ess {
   }
 
   ssize_t EnvironmentalSensingService::read_value(struct bt_conn* conn, const struct bt_gatt_attr* attr, void* buf,
-      uint16_t len, uint16_t offset) const
+      uint16_t len, uint16_t offset)
   {
-    uint16_t value = sys_cpu_to_le16(get_value());
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &value,
-        sizeof(value));
+    value_ = read_sensor();
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &value_,
+        sizeof(value_));
   }
 
   bool EnvironmentalSensingService::do_notify(int16_t old_val, int16_t new_val)

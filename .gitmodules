@@ -1,3 +1,6 @@
 [submodule "third_party/zpp"]
 	path = third_party/zpp
 	url = https://github.com/lowlander/zpp.git
+[submodule "third_party/etl"]
+	path = third_party/etl
+	url = https://github.com/ETLCPP/etl.git

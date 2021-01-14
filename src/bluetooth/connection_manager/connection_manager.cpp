@@ -8,15 +8,9 @@
 
 namespace bt {
 
-//  zpp::fifo<ConnectionItem> conn_fifo();
-  static zpp::fifo<ConnectionItem> conn_fifo;
-
   struct bt_conn* ConnectionManager::s_conn = nullptr;
   struct bt_conn_cb ConnectionManager::conn_callbacks{};
   struct bt_conn_auth_cb ConnectionManager::auth_cb_display{};
-//  zpp::basic_timer<void (*)(zpp::timer_base*)> adv_timer = zpp::make_timer(ConnectionManager::adv_timer_expired);
-//  auto adv_timer = zpp::make_timer(ConnectionManager::adv_timer_expired);
-//  static struct k_timer adv_timer{};
 
   bool ConnectionManager::begin()
   {
@@ -33,33 +27,7 @@ namespace bt {
 
     printk("Bluetooth init successfully\n");
 
-    /* create adv timer */
-//    k_timer_init(&adv_timer, ConnectionManager::adv_timer_expired, nullptr);
-
-    return true;
-  }
-
-  void ConnectionManager::bt_dev_ready(int err)
-  {
-    if (err) {
-      printk("Bluetooth init failed (err %d)\n", err);
-    }
-  }
-
-  bool ConnectionManager::start_adv()
-  {
-    int err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
-    if (err) {
-      printk("Advertising failed to start (err %d)\n", err);
-      return false;
-    }
-
-    printk("Advertising successfully started\n");
-//    adv_timer.start(ADV_TIMEOUT_S);
-
-    /* start one shot timer that expires after adv timeout */
-//    k_timer_start(&adv_timer, ADV_TIMEOUT_S, K_NO_WAIT);
-
+    /* setup callbacks */
     conn_callbacks = {
         .connected = ConnectionManager::connected,
         .disconnected = ConnectionManager::disconnected,
@@ -83,6 +51,26 @@ namespace bt {
     return true;
   }
 
+  void ConnectionManager::bt_dev_ready(int err)
+  {
+    if (err) {
+      printk("Bluetooth init failed (err %d)\n", err);
+    }
+  }
+
+  bool ConnectionManager::start_adv()
+  {
+    int err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
+    if (err) {
+      printk("Advertising failed to start (err %d)\n", err);
+      return false;
+    }
+
+    printk("Advertising successfully started\n");
+
+    return true;
+  }
+
   void ConnectionManager::connected(struct bt_conn* conn, uint8_t err)
   {
     char addr[BT_ADDR_LE_STR_LEN];
@@ -92,14 +80,11 @@ namespace bt {
 
     if (err) {
       printk("Connection failed (err 0x%02x)\n", err);
-      if (err == BT_HCI_ERR_ADV_TIMEOUT) {
-        printk("adv timed out");
-      }
+      return;
     }
-    else {
-      printk("Connected\n");
-//      adv_timer.stop();
-    }
+
+    printk("Connected\n");
+    send_con_msg(ConnectionEvent::connected);
 
     if (bt_conn_set_security(conn, BT_SECURITY_L4)) {
       printk("Failed to set security\n");
@@ -110,6 +95,7 @@ namespace bt {
   {
     s_conn = conn;
     printk("Disconnected (reason 0x%02x)\n", reason);
+    send_con_msg(ConnectionEvent::disconnected);
   }
 
   void ConnectionManager::auth_passkey_display(struct bt_conn* conn, unsigned int passkey)
@@ -138,7 +124,8 @@ namespace bt {
 
     if (!err) {
       printk("Security changed: %s level %u\n", addr, level);
-    } else {
+    }
+    else {
       printk("Security failed: %s level %u err %d\n", addr, level,
           err);
     }
@@ -162,15 +149,6 @@ namespace bt {
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
     printk("Pairing completed: %s, bonded: %d\n", addr, bonded);
-//    BT_CONN_LE_CREATE_CONN_AUTO
-//    int ret = bt_le_whitelist_clear();
-//    printk("clearing whitelist: %d", ret);
-//
-//    if (ret == 0) {
-//      // add to whitelist
-//      ret = bt_le_whitelist_add(bt_conn_get_dst(conn));
-//      printk("adding to whitelist: %d", ret);
-//    }
   }
 
   void ConnectionManager::pairing_failed(struct bt_conn* conn, enum bt_security_err reason)
@@ -198,15 +176,6 @@ namespace bt {
     return s_conn;
   }
 
-  zpp::fifo<ConnectionItem>& ConnectionManager::get_conn_fifo()
-  {
-    return conn_fifo;
-  }
-
-//  void ConnectionManager::adv_timer_expired(struct k_timer *timer_id)
-//  {
-//    printk("adv timer expired");
-////    bt_le_adv_stop();
-//  }
 
 }
+

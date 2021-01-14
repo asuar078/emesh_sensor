@@ -24,9 +24,11 @@ extern "C" {
 }
 
 #include <zpp.hpp>
+#include <shared/msg_passer.hpp>
 
 #include <chrono>
-
+#include <etl/delegate.h>
+#include <etl/delegate_service.h>
 
 namespace bt {
 
@@ -39,34 +41,14 @@ namespace bt {
           BT_UUID_16_ENCODE(BT_UUID_BAS_VAL)),
   };
 
-  enum class ConnectionEvent {
-      none = 0,
-      connected,
-      disconnected,
-      adv_timed_out,
-      notify_central
-  };
-
-  class ConnectionItem : public zpp::fifo_item_base {
-    public:
-      ConnectionEvent event = ConnectionEvent::none;
-  };
-
-
   class ConnectionManager {
     public:
 
-
-
-      static zpp::fifo<ConnectionItem>& get_conn_fifo();
-
-      static bool begin();
+       static bool begin();
 
       static bool start_adv();
 
       static bt_conn* get_connection();
-
-//      static void adv_timer_expired(struct k_timer *timer_id);
 
     private:
       static struct bt_conn* s_conn;

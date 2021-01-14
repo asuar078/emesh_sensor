@@ -19,6 +19,8 @@ target_sources(app PRIVATE
 )
 
 add_subdirectory(third_party/zpp)
+add_subdirectory(third_party/etl)
+target_include_directories(etl INTERFACE third_party/etl_profile)
 
 #zephyr_library_include_directories(${ZEPHYR_BASE}/samples/bluetooth)
 add_subdirectory(src/sensors)
@@ -29,4 +31,5 @@ target_link_libraries(app PRIVATE
         sensor_lib
         utils_lib
         bt_lib
+        etl
         )

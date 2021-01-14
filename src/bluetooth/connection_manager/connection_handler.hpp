@@ -5,8 +5,15 @@
 #ifndef EMESH_SENSOR_CONNECTION_HANDLER_HPP
 #define EMESH_SENSOR_CONNECTION_HANDLER_HPP
 
+extern "C" {
+#include <device.h>
+#include <drivers/gpio.h>
+#include <sys/util.h>
+};
+
 #include "connection_manager.hpp"
-#include <zpp.hpp>
+#include "adv_btn/advertise_button.hpp"
+
 #include <chrono>
 
 namespace bt {
@@ -14,28 +21,18 @@ namespace bt {
   class ConnectionHandler {
     public:
 
-      static constexpr const auto ADV_TIMEOUT_S = std::chrono::seconds(5);
-//      #define ADV_TIMEOUT_S K_SECONDS(5)
+      static constexpr const auto ADV_TIMEOUT_S = std::chrono::seconds(30);
 
       ConnectionHandler();
 
+      bool begin();
+
       void start();
-//      {
-//        s_thread = zpp::thread(
-//            s_thread_tcb, s_thread_attr, [this](int) {
-//              this->run();
-//            }, 0);
-//      }
 
       void run();
-//      {
-//        while (true) {
-//          zpp::print("Second thread test\n");
-//          zpp::this_thread::sleep_for(std::chrono::seconds(1));
-//        }
-//      }
 
       static void adv_timer_expired(zpp::timer_base* t);
+
 
     private:
       bool running = true;
@@ -47,6 +44,8 @@ namespace bt {
           zpp::thread_suspend::no
       };
 
+      ConnectionManager conn_man;
+      AdvertiseButton adv_btn;
   };
 }
 

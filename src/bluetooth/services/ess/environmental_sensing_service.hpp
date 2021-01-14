@@ -212,7 +212,7 @@ namespace bt::ess {
 
       ssize_t read_value(struct bt_conn* conn,
           const struct bt_gatt_attr* attr,
-          void* buf, uint16_t len, uint16_t offset) const;
+          void* buf, uint16_t len, uint16_t offset);
 
       void update_value(struct bt_conn* conn, const struct bt_gatt_attr* chrc);
 
