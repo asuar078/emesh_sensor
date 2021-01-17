@@ -33,16 +33,26 @@ extern "C" {
 #include <bluetooth/services/bas.h>
 }
 
-#include <humidity/humidity_sensor.hpp>
+#include <logger.hpp>
+
+#include <bme280/bme_280.hpp>
 #include <connection_manager/connection_handler.hpp>
 #include <connection_manager/connection_manager.hpp>
 #include <services/ess/environmental_sensing_service.hpp>
 
 
-/* Sensor Internal Update Interval [seconds] */
-#define SENSOR_1_UPDATE_IVAL      5
-#define SENSOR_2_UPDATE_IVAL      12
-#define SENSOR_3_UPDATE_IVAL      60
+//
+// using a anonymous namespace for file local variables and functions
+//
+namespace {
+
+  auto& logger = Logger::get_instance();
+
+  sensor::BME280 bme_sensor{};
+
+  bt::ConnectionHandler connection_handler{bme_sensor};
+
+} // namespace
 
 bt::ess::EnvironmentalSensingService temp_sensor{
     "Temperature Sensor CPP",
@@ -106,45 +116,38 @@ static void bas_notify(void)
 }
 
 
-#define DEFAULT_FOO_VAL_VALUE 0
-
-static uint8_t foo_val = DEFAULT_FOO_VAL_VALUE;
-
-static int foo_settings_set(const char* name, size_t len,
-    settings_read_cb read_cb, void* cb_arg)
-{
-  const char* next;
-  int rc;
-
-  if (settings_name_steq(name, "bar", &next) && !next) {
-    if (len != sizeof(foo_val)) {
-      return -EINVAL;
-    }
-
-    rc = read_cb(cb_arg, &foo_val, sizeof(foo_val));
-    if (rc >= 0) {
-      return 0;
-    }
-
-    return rc;
-  }
-
-  return -ENOENT;
-}
-
-struct settings_handler my_conf = {
-    .name = "foo",
-    .h_set = foo_settings_set
-};
-
+//#define DEFAULT_FOO_VAL_VALUE 0
 //
-// using a anonymous namespace for file local variables and functions
+//static uint8_t foo_val = DEFAULT_FOO_VAL_VALUE;
 //
-namespace {
+//static int foo_settings_set(const char* name, size_t len,
+//    settings_read_cb read_cb, void* cb_arg)
+//{
+//  const char* next;
+//  int rc;
+//
+//  if (settings_name_steq(name, "bar", &next) && !next) {
+//    if (len != sizeof(foo_val)) {
+//      return -EINVAL;
+//    }
+//
+//    rc = read_cb(cb_arg, &foo_val, sizeof(foo_val));
+//    if (rc >= 0) {
+//      return 0;
+//    }
+//
+//    return rc;
+//  }
+//
+//  return -ENOENT;
+//}
+//
+//struct settings_handler my_conf = {
+//    .name = "foo",
+//    .h_set = foo_settings_set
+//};
 
-  bt::ConnectionHandler connection_handler{};
 
-} // namespace
 
 
 void main(void)
@@ -152,8 +155,9 @@ void main(void)
   using namespace zpp;
   using namespace std::chrono;
 
-  printk("C++ version\n");
+  log_msg("C++ version {}", 25);
 
+  bme_sensor.begin();
   connection_handler.begin();
 
   connection_handler.start();

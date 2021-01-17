@@ -21,11 +21,11 @@ namespace bt {
 
     err = bt_enable(ConnectionManager::bt_dev_ready);
     if (err) {
-      printk("Bluetooth init failed (err %d)\n", err);
+      log_msg("Bluetooth init failed (err {})", err);
       return false;
     }
 
-    printk("Bluetooth init successfully\n");
+    log_msg("Bluetooth init successfully");
 
     /* setup callbacks */
     conn_callbacks = {
@@ -54,7 +54,7 @@ namespace bt {
   void ConnectionManager::bt_dev_ready(int err)
   {
     if (err) {
-      printk("Bluetooth init failed (err %d)\n", err);
+      log_msg("Bluetooth init failed (err {})", err);
     }
   }
 
@@ -62,11 +62,11 @@ namespace bt {
   {
     int err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
     if (err) {
-      printk("Advertising failed to start (err %d)\n", err);
+      log_msg("Advertising failed to start (err {})", err);
       return false;
     }
 
-    printk("Advertising successfully started\n");
+    log_msg("Advertising successfully started");
 
     return true;
   }
@@ -79,22 +79,22 @@ namespace bt {
     s_conn = conn;
 
     if (err) {
-      printk("Connection failed (err 0x%02x)\n", err);
+      log_msg("Connection failed (err {})\n", err);
       return;
     }
 
-    printk("Connected\n");
+    log_msg("Connected");
     send_con_msg(ConnectionEvent::connected);
 
     if (bt_conn_set_security(conn, BT_SECURITY_L4)) {
-      printk("Failed to set security\n");
+      log_msg("Failed to set security");
     }
   }
 
   void ConnectionManager::disconnected(struct bt_conn* conn, uint8_t reason)
   {
     s_conn = conn;
-    printk("Disconnected (reason 0x%02x)\n", reason);
+    log_msg("Disconnected (reason {})\n", reason);
     send_con_msg(ConnectionEvent::disconnected);
   }
 
@@ -104,7 +104,7 @@ namespace bt {
 
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    printk("Passkey for %s: %06u\n", addr, passkey);
+    log_msg("Passkey for {}: {}", addr, passkey);
   }
 
   void ConnectionManager::auth_cancel(struct bt_conn* conn)
@@ -113,7 +113,7 @@ namespace bt {
 
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    printk("Pairing cancelled: %s\n", addr);
+    log_msg("Pairing cancelled: {}", addr);
   }
 
   void ConnectionManager::security_changed(struct bt_conn* conn, bt_security_t level, enum bt_security_err err)
@@ -123,11 +123,10 @@ namespace bt {
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
     if (!err) {
-      printk("Security changed: %s level %u\n", addr, level);
+      log_msg("Security changed: {} level {}", addr, level);
     }
     else {
-      printk("Security failed: %s level %u err %d\n", addr, level,
-          err);
+      log_msg("Security failed: {} level {} err {}", addr, level, err);
     }
   }
 
@@ -139,7 +138,7 @@ namespace bt {
 
     bt_conn_auth_pairing_confirm(conn);
 
-    printk("Pairing confirmed: %s\n", addr);
+    log_msg("Pairing confirmed: {}", addr);
   }
 
   void ConnectionManager::pairing_complete(struct bt_conn* conn, bool bonded)
@@ -148,7 +147,7 @@ namespace bt {
 
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    printk("Pairing completed: %s, bonded: %d\n", addr, bonded);
+    log_msg("Pairing completed: {}, bonded: {}", addr, bonded);
   }
 
   void ConnectionManager::pairing_failed(struct bt_conn* conn, enum bt_security_err reason)
@@ -157,7 +156,7 @@ namespace bt {
 
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    printk("Pairing failed conn: %s, reason %d\n", addr, reason);
+    log_msg("Pairing failed conn: {}, reason {}", addr, reason);
   }
 
   void ConnectionManager::identity_resolved(struct bt_conn* conn, const bt_addr_le_t* rpa, const bt_addr_le_t* identity)
@@ -168,7 +167,7 @@ namespace bt {
     bt_addr_le_to_str(identity, addr_identity, sizeof(addr_identity));
     bt_addr_le_to_str(rpa, addr_rpa, sizeof(addr_rpa));
 
-    printk("Identity resolved %s -> %s\n", addr_rpa, addr_identity);
+    log_msg("Identity resolved {} -> {}", addr_rpa, addr_identity);
   }
 
   bt_conn* ConnectionManager::get_connection()

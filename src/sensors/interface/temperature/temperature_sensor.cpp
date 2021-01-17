@@ -10,4 +10,14 @@ namespace sensor {
     return 0;
   }
 
+  int16_t TemperatureSensor::read_sensor()
+  {
+    return get_temperature_hecto_c();
+  }
+
+  bt::ess::EnvironmentalSensingService& TemperatureSensor::get_temp_sensor()
+  {
+    return temp_sensor;
+  }
+
 }

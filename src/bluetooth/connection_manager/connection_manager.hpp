@@ -24,6 +24,7 @@ extern "C" {
 }
 
 #include <zpp.hpp>
+#include <logger.hpp>
 #include <shared/msg_passer.hpp>
 
 #include <chrono>

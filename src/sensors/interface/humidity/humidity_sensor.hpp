@@ -15,7 +15,7 @@ namespace sensor {
        * Basically humidity_pct * 100
        * @return a hecto percent humidity between 0 - 10,000
        */
-      [[nodiscard]] std::uint16_t get_humidity_hecto_pct() const;
+      [[nodiscard]] virtual std::uint16_t get_humidity_hecto_pct() const;
   };
 }
 

@@ -3,17 +3,20 @@
 //
 
 #include "connection_handler.hpp"
-#include <cstddef>
 #include <adv_btn/advertise_button.hpp>
+#include <logger.hpp>
 
 extern "C" {
 #include <settings/settings.h>
 #include <zephyr/types.h>
 }
 
+#include <cstddef>
+
 namespace bt {
 
   static auto adv_timer = zpp::make_timer(ConnectionHandler::adv_timer_expired);
+  static auto notify_timer = zpp::make_timer(ConnectionHandler::notify_timer_expired);
 
   static int settings_runtime_load()
   {
@@ -48,7 +51,11 @@ namespace bt {
     return 0;
   }
 
-  ConnectionHandler::ConnectionHandler() = default;
+  ConnectionHandler::ConnectionHandler(sensor::BME280& bme)
+  : bme_(bme)
+  {
+
+  }
 
   bool ConnectionHandler::begin()
   {
@@ -72,45 +79,49 @@ namespace bt {
     settings_load();
     settings_runtime_load();
 
+    /* start advertising */
     bt::ConnectionManager::start_adv();
-
+    /* start timer */
     adv_timer.start(ADV_TIMEOUT_S);
 
     while (running) {
 
       ret = get_con_msg();
-      zpp::print("event received: {}\n", static_cast<int8_t>(ret));
+      log_msg("event received: {}", static_cast<int8_t>(ret));
 
       switch (ret) {
         case ConnectionEvent::none:
           break;
         case ConnectionEvent::connected:
-          zpp::print("connected, stopping adv timer\n");
+          log_msg("connected, stopping adv timer");
           adv_timer.stop();
+          notify_timer.start(NOTIFY_START_IN_S, NOTIFY_TIMEOUT_S);
           break;
         case ConnectionEvent::disconnected:
-          zpp::print("restarting adv timer\n");
+          log_msg("restarting adv timer");
+          notify_timer.stop();
           adv_timer.start(ADV_TIMEOUT_S);
           break;
         case ConnectionEvent::adv_timed_out:
-          zpp::print("adv timer expired\n");
+          log_msg("adv timer expired");
           bt_le_adv_stop();
           break;
         case ConnectionEvent::notify_central:
+          log_msg("notify central");
           break;
         case ConnectionEvent::adv_btn_short_press:
-          zpp::print("short press\n");
+          log_msg("short press");
           // show battery life or other information
           break;
         case ConnectionEvent::adv_btn_long_press:
-          zpp::print("long press\n");
+          log_msg("long press\n");
           if (adv_timer.status() > 0) {
-            zpp::print("restarting adv\n");
+            log_msg("restarting adv");
             bt::ConnectionManager::start_adv();
             adv_timer.start(ADV_TIMEOUT_S);
           }
           else {
-            zpp::print("adv still in effect\n");
+            log_msg("adv still in effect");
           }
           break;
       }
@@ -122,6 +133,11 @@ namespace bt {
   void ConnectionHandler::adv_timer_expired(zpp::timer_base* t)
   {
     send_con_msg(ConnectionEvent::adv_timed_out);
+  }
+
+  void ConnectionHandler::notify_timer_expired(zpp::timer_base* t)
+  {
+    send_con_msg(ConnectionEvent::notify_central);
   }
 
 }
