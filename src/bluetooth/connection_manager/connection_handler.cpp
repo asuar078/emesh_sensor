@@ -51,8 +51,7 @@ namespace bt {
     return 0;
   }
 
-  ConnectionHandler::ConnectionHandler(sensor::BME280& bme)
-  : bme_(bme)
+  ConnectionHandler::ConnectionHandler()
   {
 
   }

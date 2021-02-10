@@ -1,175 +1,169 @@
-/* main.c - Application main entry point */
-
 /*
- * Copyright (c) 2016 Intel Corporation
+ * Copyright (c) 2020 Nordic Semiconductor ASA
  *
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: LicenseRef-BSD-5-Clause-Nordic
  */
 
-extern "C" {
-
-#include <zephyr/types.h>
-#include <stddef.h>
-#include <string.h>
-#include <errno.h>
-#include <sys/printk.h>
-#include <sys/byteorder.h>
 #include <zephyr.h>
-#include <settings/settings.h>
+#include <dk_buttons_and_leds.h>
+#include <logging/log.h>
+#include <ram_pwrdn.h>
+#include <device.h>
 
-/**
- * Line 600 of bluetooth.h
- * need to add a const to struct array to compile
- * #define BT_LE_ADV_PARAM(_options, _int_min, _int_max, _peer) \
-	((const struct bt_le_adv_param[]) { \
-		BT_LE_ADV_PARAM_INIT(_options, _int_min, _int_max, _peer) \
-	 })
- */
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/hci.h>
-#include <bluetooth/conn.h>
-#include <bluetooth/uuid.h>
-#include <bluetooth/gatt.h>
-#include <bluetooth/services/bas.h>
+#include "coap_client_utils.h"
+
+#if CONFIG_BT_NUS
+#include "ble_utils.h"
+#endif
+
+LOG_MODULE_REGISTER(coap_client, CONFIG_COAP_CLIENT_LOG_LEVEL);
+
+#define CONSOLE_LABEL DT_LABEL(DT_CHOSEN(zephyr_console))
+
+#define OT_CONNECTION_LED DK_LED1
+#define BLE_CONNECTION_LED DK_LED2
+#define MTD_SED_LED DK_LED3
+
+#if CONFIG_BT_NUS
+
+#define COMMAND_REQUEST_UNICAST 'u'
+#define COMMAND_REQUEST_MULTICAST 'm'
+#define COMMAND_REQUEST_PROVISIONING 'p'
+
+static void on_nus_received(struct bt_conn *conn, const uint8_t *const data,
+			    uint16_t len)
+{
+	LOG_INF("Received data: %s", log_strdup(data));
+
+	if (len != 1) {
+		LOG_WRN("Received invalid data length from NUS");
+		return;
+	}
+
+	switch (*data) {
+	case COMMAND_REQUEST_UNICAST:
+		coap_client_toggle_one_light();
+		break;
+
+	case COMMAND_REQUEST_MULTICAST:
+		coap_client_toggle_mesh_lights();
+		break;
+
+	case COMMAND_REQUEST_PROVISIONING:
+		coap_client_send_provisioning_request();
+		break;
+
+	default:
+		LOG_WRN("Received invalid data from NUS");
+	}
 }
 
-#include <logger.hpp>
-
-#include <bme280/bme_280.hpp>
-#include <connection_manager/connection_handler.hpp>
-#include <connection_manager/connection_manager.hpp>
-#include <services/ess/environmental_sensing_service.hpp>
-
-
-//
-// using a anonymous namespace for file local variables and functions
-//
-namespace {
-
-  auto& logger = Logger::get_instance();
-
-  sensor::BME280 bme_sensor{};
-
-  bt::ConnectionHandler connection_handler{bme_sensor};
-
-} // namespace
-
-bt::ess::EnvironmentalSensingService temp_sensor{
-    "Temperature Sensor CPP",
-    bt::ess::Measurement{
-        bt::ess::Measurement::SamplingFunction::unspecified,
-        bt::ess::Measurement::Application::indoor,
-        1,
-        1,
-        5
-    },
-    bt::ess::TriggerSetting{
-        bt::ess::TriggerSetting::Condition::value_changed
-    },
-    bt::ess::Configuration{
-        bt::ess::Configuration::ClientCharConfig::none
-    }
-};
-
-void temp_ccc_cfg_changed_cb(const struct bt_gatt_attr* attr, uint16_t value)
+static void on_ble_connect(struct k_work *item)
 {
-  temp_sensor.get_configuration().set_ccc(value);
+	ARG_UNUSED(item);
+
+	dk_set_led_on(BLE_CONNECTION_LED);
 }
 
-/* Environmental Sensing Service Declaration */
-BT_GATT_SERVICE_DEFINE(ess_svc,
-    BT_GATT_PRIMARY_SERVICE(BT_UUID_ESS),
-
-/* Temperature Sensor cpp */
-    BT_GATT_CHARACTERISTIC(BT_UUID_TEMPERATURE,
-        BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
-        BT_GATT_PERM_READ,
-        bt::ess::read_value_cb, NULL, &temp_sensor),
-
-    BT_GATT_DESCRIPTOR(BT_UUID_ES_MEASUREMENT, BT_GATT_PERM_READ,
-        bt::ess::read_measurement_cb, NULL, &temp_sensor),
-
-    BT_GATT_CUD(temp_sensor.get_name(), BT_GATT_PERM_READ),
-
-    BT_GATT_DESCRIPTOR(BT_UUID_VALID_RANGE, BT_GATT_PERM_READ,
-        bt::ess::read_valid_range_cb, NULL, &temp_sensor),
-
-    BT_GATT_DESCRIPTOR(BT_UUID_ES_TRIGGER_SETTING,
-        BT_GATT_PERM_READ, bt::ess::read_trigger_setting_cb,
-        NULL, &temp_sensor),
-
-    BT_GATT_CCC(temp_ccc_cfg_changed_cb,
-        BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
-);
-
-static void bas_notify(void)
+static void on_ble_disconnect(struct k_work *item)
 {
-  uint8_t battery_level = bt_bas_get_battery_level();
+	ARG_UNUSED(item);
 
-  battery_level--;
+	dk_set_led_off(BLE_CONNECTION_LED);
+}
 
-  if (!battery_level) {
-    battery_level = 100U;
+#endif /* CONFIG_BT_NUS */
+
+static void on_ot_connect(struct k_work *item)
+{
+  ARG_UNUSED(item);
+
+  LOG_INF("connected\n");
+  dk_set_led_on(OT_CONNECTION_LED);
+}
+
+static void on_ot_disconnect(struct k_work *item)
+{
+  ARG_UNUSED(item);
+
+  LOG_INF("disconnected\n");
+  dk_set_led_off(OT_CONNECTION_LED);
+}
+
+static void on_mtd_mode_toggle(uint32_t med)
+{
+  LOG_INF("toggled %d\n", med);
+#if IS_ENABLED(CONFIG_DEVICE_POWER_MANAGEMENT)
+  const struct device *cons = device_get_binding(CONSOLE_LABEL);
+
+	if (med) {
+		device_set_power_state(cons, DEVICE_PM_ACTIVE_STATE,
+				       NULL, NULL);
+	} else {
+		device_set_power_state(cons, DEVICE_PM_OFF_STATE,
+				       NULL, NULL);
+	}
+#endif
+  dk_set_led(MTD_SED_LED, med);
+}
+
+static void on_button_changed(uint32_t button_state, uint32_t has_changed)
+{
+  uint32_t buttons = button_state & has_changed;
+
+  if (buttons & DK_BTN1_MSK) {
+    coap_client_toggle_one_light();
   }
 
-  bt_bas_set_battery_level(battery_level);
+  if (buttons & DK_BTN2_MSK) {
+    coap_client_toggle_mesh_lights();
+  }
+
+  if (buttons & DK_BTN3_MSK) {
+    coap_client_toggle_minimal_sleepy_end_device();
+  }
+
+  if (buttons & DK_BTN4_MSK) {
+    coap_client_send_provisioning_request();
+  }
 }
-
-
-//#define DEFAULT_FOO_VAL_VALUE 0
-//
-//static uint8_t foo_val = DEFAULT_FOO_VAL_VALUE;
-//
-//static int foo_settings_set(const char* name, size_t len,
-//    settings_read_cb read_cb, void* cb_arg)
-//{
-//  const char* next;
-//  int rc;
-//
-//  if (settings_name_steq(name, "bar", &next) && !next) {
-//    if (len != sizeof(foo_val)) {
-//      return -EINVAL;
-//    }
-//
-//    rc = read_cb(cb_arg, &foo_val, sizeof(foo_val));
-//    if (rc >= 0) {
-//      return 0;
-//    }
-//
-//    return rc;
-//  }
-//
-//  return -ENOENT;
-//}
-//
-//struct settings_handler my_conf = {
-//    .name = "foo",
-//    .h_set = foo_settings_set
-//};
-
-
-
 
 void main(void)
 {
-  using namespace zpp;
-  using namespace std::chrono;
+  int ret;
 
-  log_msg("C++ version {}", 25);
+  LOG_INF("Start CoAP-client sample");
 
-  bme_sensor.begin();
-  connection_handler.begin();
+  if (IS_ENABLED(CONFIG_RAM_POWER_DOWN_LIBRARY)) {
+    power_down_unused_ram();
+  }
 
-  connection_handler.start();
-//  while (1) {
-//    k_sleep(K_SECONDS(1));
-//
-////    printk("in loop");
-//
-//    /* update temp sensor */
-//    temp_sensor.update_value(NULL, &ess_svc.attrs[2]);
-//
-//    /* Battery level simulation */
-//    bas_notify();
-//  }
+  ret = dk_buttons_init(on_button_changed);
+  if (ret) {
+    LOG_ERR("Cannot init buttons (error: %d)", ret);
+    return;
+  }
+
+  ret = dk_leds_init();
+  if (ret) {
+    LOG_ERR("Cannot init leds, (error: %d)", ret);
+    return;
+  }
+
+#if CONFIG_BT_NUS
+  struct bt_nus_cb nus_clbs = {
+		.received = on_nus_received,
+		.sent = NULL,
+	};
+
+	ret = ble_utils_init(&nus_clbs, on_ble_connect, on_ble_disconnect);
+	if (ret) {
+		LOG_ERR("Cannot init BLE utilities");
+		return;
+	}
+
+#endif /* CONFIG_BT_NUS */
+
+  coap_client_utils_init(on_ot_connect, on_ot_disconnect,
+      on_mtd_mode_toggle);
 }

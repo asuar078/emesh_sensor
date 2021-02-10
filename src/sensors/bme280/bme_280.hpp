@@ -12,12 +12,12 @@ extern "C" {
 #include <drivers/sensor.h>
 };
 
-#define BME280 DT_INST(0, bosch_bme280)
-#define BME280_LABEL DT_LABEL(BME280)
-
-#if !DT_NODE_HAS_STATUS(BME280, okay)
-#error Your devicetree has no enabled nodes with compatible "bosch,bme280"
-#endif
+//#define BME280 DT_INST(0, bosch_bme280)
+//#define BME280_LABEL DT_LABEL(BME280)
+//
+//#if !DT_NODE_HAS_STATUS(BME280, okay)
+//#error Your devicetree has no enabled nodes with compatible "bosch,bme280"
+//#endif
 
 #include <interface/humidity/humidity_sensor.hpp>
 #include <interface/temperature/temperature_sensor.hpp>

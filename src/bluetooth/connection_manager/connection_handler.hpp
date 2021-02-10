@@ -14,8 +14,6 @@ extern "C" {
 #include "connection_manager.hpp"
 #include "adv_btn/advertise_button.hpp"
 
-#include <bme280/bme_280.hpp>
-
 #include <chrono>
 
 namespace bt {
@@ -27,7 +25,7 @@ namespace bt {
       static constexpr const auto NOTIFY_TIMEOUT_S = std::chrono::seconds(10);
       static constexpr const auto NOTIFY_START_IN_S = std::chrono::seconds(10);
 
-      ConnectionHandler(sensor::BME280& bme);
+      ConnectionHandler();
 
       bool begin();
 
@@ -40,7 +38,6 @@ namespace bt {
       static void notify_timer_expired(zpp::timer_base* t);
 
     private:
-      sensor::BME280& bme_;
       bool running = true;
       zpp::thread s_thread;
       zpp::thread_data<1024> s_thread_tcb;
